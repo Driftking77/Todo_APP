@@ -1,0 +1,75 @@
+trigger: none
+pool: Default
+
+stages:
+- stage: terraforminitplan
+  displayName: Terraform Init, Plan, and Lint
+  jobs:
+    - job: terraforminitplanjob
+      displayName: Terraform Init, Plan, and Lint Job
+      steps:
+        # Install TFLint
+        - task: CmdLine@2
+          displayName: Install TFLint
+          inputs:
+            script: |
+              curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install.sh | bash
+        
+        # Run TFLint
+        - task: CmdLine@2
+          displayName: Run TFLint
+          inputs:
+            script: |
+              tflint $(System.DefaultWorkingDirectory)/environment/dev
+
+        # Terraform Init
+        - task: TerraformTaskV4@4
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+            backendServiceArm: 'todoappconnection'
+            backendAzureRmResourceGroupName: 'AKS-RG1'
+            backendAzureRmStorageAccountName: 'todoappstorageaccount12'
+            backendAzureRmContainerName: 'todoapp'
+            backendAzureRmKey: 'dev.terraform.tfstate'
+        
+        # Terraform Plan
+        - task: TerraformTaskV4@4
+          inputs:
+            provider: 'azurerm'
+            command: 'plan'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+            environmentServiceNameAzureRM: 'todoappconnection'
+
+- stage: manualvalidationandapply
+  displayName: Manual Validation and Terraform Apply
+  dependsOn: terraforminitplan
+  jobs:
+    - job: terraformapplyjob
+      displayName: Terraform Apply and Manual Validation Job
+      steps:
+        # Manual Validation Step
+        - task: ManualValidation@1
+          inputs:
+            notifyUsers: 'abc@gamil.com'
+
+        # Terraform Init for Apply (same as before)
+        - task: TerraformTaskV4@4
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+            backendServiceArm: 'todoappconnection'
+            backendAzureRmResourceGroupName: 'AKS-RG1'
+            backendAzureRmStorageAccountName: 'todoappstorageaccount12'
+            backendAzureRmContainerName: 'todoapp'
+            backendAzureRmKey: 'dev.terraform.tfstate'
+        
+        # Terraform Apply
+        - task: TerraformTaskV4@4
+          inputs:
+            provider: 'azurerm'
+            command: 'apply'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+            environmentServiceNameAzureRM: 'todoappconnection'

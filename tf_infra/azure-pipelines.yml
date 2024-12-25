@@ -1,0 +1,88 @@
+trigger: none
+
+pool: Agentvm
+
+stages:
+  - stage: TerraformInfra
+    displayName: Terraform Infra
+    jobs:
+
+      # Job 1: Terraform Installer
+      - job: terraformInstaller
+        displayName: Install Terraform
+        steps:
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: 'latest'
+
+      # Job 2: TFSec Security Scan
+      - job: tfsecScan
+        displayName: TFSec Security Scan
+        dependsOn: terraformInstaller
+        steps:
+          - task: tfsec@1
+            inputs:
+              version: 'v1.26.0'
+              dir: '$(System.DefaultWorkingDirectory)/environment/dev'
+
+      # Job 3: Terraform Initialization
+      - job: terraforminit
+        displayName: Initialize Terraform Backend
+        dependsOn: terraformInstaller
+        steps:
+          
+          - task: TerraformTaskV4@4
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+              backendServiceArm: 'todoappconnection'  # Correct Azure service connection
+              backendAzureRmResourceGroupName: 'testrg'
+              backendAzureRmStorageAccountName: 'devopsstg14325'
+              backendAzureRmContainerName: 'dev'
+              backendAzureRmKey: 'dev.terraform.tfstate'
+
+      # Job 4: Terraform Plan
+      - job: terraformPlan
+        displayName: Terraform Plan
+        dependsOn: terraforminit
+        steps:
+        
+        - task: TerraformTaskV4@4
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+            backendServiceArm: 'todoappconnection'
+            backendAzureRmResourceGroupName: 'testrg'
+            backendAzureRmStorageAccountName: 'devopsstg14325'
+            backendAzureRmContainerName: 'dev'
+            backendAzureRmKey: 'dev.terraform.tfstate'
+        - task: TerraformTaskV4@4
+          inputs:
+            provider: 'azurerm'
+            command: 'plan'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+            environmentServiceNameAzureRM: 'todoappconnection'
+
+      # Job 5: Terraform Apply
+      - job: terraformapply
+        displayName: Apply Terraform Changes
+        dependsOn: terraformPlan
+        steps:
+        - task: TerraformTaskV4@4
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+            backendServiceArm: 'todoappconnection'
+            backendAzureRmResourceGroupName: 'testrg'
+            backendAzureRmStorageAccountName: 'devopsstg14325'
+            backendAzureRmContainerName: 'dev'
+            backendAzureRmKey: 'dev.terraform.tfstate'
+        - task: TerraformTaskV4@4
+          inputs:
+            provider: 'azurerm'
+            command: 'apply'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+            environmentServiceNameAzureRM: 'todoappconnection'

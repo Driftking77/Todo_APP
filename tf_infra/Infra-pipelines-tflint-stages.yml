@@ -1,0 +1,98 @@
+trigger: none
+pool: Default
+
+stages:
+- stage: terraforminitplan
+  displayName: Terraform Init, Plan, and Lint
+  jobs:
+    - job: terraforminitplanjob
+      displayName: Terraform Init, Plan, and Lint Job
+      steps:
+        # Step 1: Install Chocolatey (if it's not installed)
+        - task: CmdLine@2
+          displayName: Install Chocolatey
+          inputs:
+            script: |
+              @echo off
+              SET CHOCO_INSTALLED=%ERRORLEVEL%
+              IF NOT EXIST "%ProgramFiles%\Chocolatey" (
+                  SET CHOCO_INSTALLED=0
+              )
+              IF %CHOCO_INSTALLED% NEQ 0 (
+                  echo Installing Chocolatey...
+                  SET "PATH=%PATH%;%ProgramFiles%\Chocolatey\bin"
+                  SET "chocoInstallCmd=@"echo Installing Chocolatey""
+                  SET "chocoInstallCmd&exit"
+              )
+
+        # Step 2: Install TFLint (using Chocolatey)
+        - task: CmdLine@2
+          displayName: Install TFLint (Windows)
+          inputs:
+            script: |
+              choco install tflint -y
+        
+        # Step 3: Run TFLint to check the Terraform code
+        - task: CmdLine@2
+          displayName: Run TFLint
+          inputs:
+            script: |
+              tflint $(System.DefaultWorkingDirectory)/environment/dev
+
+        # Step 4: Terraform Init (Initialize the Terraform working directory)
+        - task: TerraformTaskV4@4
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+            backendServiceArm: 'todoappconnection'
+            backendAzureRmResourceGroupName: 'AKS-RG1'
+            backendAzureRmStorageAccountName: 'todoappstorageaccount12'
+            backendAzureRmContainerName: 'todoapp'
+            backendAzureRmKey: 'dev.terraform.tfstate'
+        
+        # Step 5: Terraform Plan (Create a plan to apply changes)
+        - task: TerraformTaskV4@4
+          inputs:
+            provider: 'azurerm'
+            command: 'plan'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+            environmentServiceNameAzureRM: 'todoappconnection'
+
+- stage: manualvalidationandapply
+  displayName: Manual Validation and Terraform Apply
+  dependsOn: terraforminitplan
+  jobs:
+    - job: manualvalidationjob
+      displayName: Manual Validation Job
+      pool: server
+      steps:
+        # Step 6: Manual Validation (Pause pipeline for approval)
+        - task: ManualValidation@1
+          inputs:
+            notifyUsers: 'abc@gamil.com'
+
+    - job: terraformapplyjob
+      displayName: Terraform Apply Job
+      pool: Default
+      dependsOn: manualvalidationjob
+      steps:
+        # Step 7: Terraform Init for Apply (Reinitialize for Apply)
+        - task: TerraformTaskV4@4
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+            backendServiceArm: 'todoappconnection'
+            backendAzureRmResourceGroupName: 'AKS-RG1'
+            backendAzureRmStorageAccountName: 'todoappstorageaccount12'
+            backendAzureRmContainerName: 'todoapp'
+            backendAzureRmKey: 'dev.terraform.tfstate'
+        
+        # Step 8: Terraform Apply (Apply the changes to infrastructure)
+        - task: TerraformTaskV4@4
+          inputs:
+            provider: 'azurerm'
+            command: 'apply'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+            environmentServiceNameAzureRM: 'todoappconnection'
