@@ -1,0 +1,37 @@
+trigger: none
+pool: Agent-vm
+stages:
+- stage: BuildStage
+  displayName: BuildStage
+  jobs:
+  - job: BuildJob
+    displayName: Build Job
+    steps:
+  
+    - task: Docker@2
+      inputs:
+        containerRegistry: 'todoDcokerSC'
+        repository: 'gettask'
+        command: 'buildAndPush'
+        Dockerfile: '**/Dockerfile'
+        tags: |
+          $(Build.BuildId)
+          latest
+- stage: DeployStage
+  displayName: Deploy Stage
+  dependsOn: BuildStage
+  jobs:
+  - job: TodoDeployment
+    displayName: Todo Deployment
+    steps:
+    - task: Kubernetes@1
+      displayName: Apply Kubernetes Manifests
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: 'todoK8sSC'
+        namespace: 'default'
+        command: 'apply'
+        useConfigurationFile: true
+        configuration: 'manifests'
+        secretType: 'dockerRegistry'
+        containerRegistryType: 'Azure Container Registry'
