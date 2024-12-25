@@ -1,0 +1,20 @@
+trigger: none
+pool: Default
+stages:
+- stage: BuildJob
+  jobs:
+  - job: BuildJob
+    displayName: Build Job
+    steps:
+    - task: Docker@2
+      inputs:
+        containerRegistry: 'Docker-connecton'
+        repository: 'todoui'
+        command: 'buildAndPush'
+        Dockerfile: '**/Dockerfile'
+        tags: |
+          $(Build.BuildId)
+          latest
+     
+
+

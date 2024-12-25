@@ -1,0 +1,67 @@
+trigger: none
+pool: Agentvm
+stages:
+- stage: TeraformInitandplan
+  displayName:  Teraform Init and plan
+ # condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/heads/feature/'))
+  jobs:
+  - job: TerraformInitandplan
+    displayName: Terraform Init and plan
+    steps:
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+        backendServiceArm: 'todoappconnection'
+        backendAzureRmResourceGroupName: 'testrg'
+        backendAzureRmStorageAccountName: 'devopsstg14325'
+        backendAzureRmContainerName: 'dev'
+        backendAzureRmKey: 'dev.terraform.tfstate'
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+        environmentServiceNameAzureRM: 'todoappconnection'
+- stage: ManualValidationandterraformapply
+  displayName: Manual Validation and terraform apply
+ # dependsOn: TeraformInitandplan
+  condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
+  jobs:
+  - job: ManualValidation
+    displayName: Manual Validation
+    pool: server
+    steps: 
+    - task: ManualValidation@1
+      inputs:
+        notifyUsers: abc@gamil.com
+        timeoutInMinutes: 3
+  - job: terraformapply
+    displayName: terraform apply
+    dependsOn: ManualValidation
+    steps:
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+        backendServiceArm: 'todoappconnection'
+        backendAzureRmResourceGroupName: 'testrg'
+        backendAzureRmStorageAccountName: 'devopsstg14325'
+        backendAzureRmContainerName: 'dev'
+        backendAzureRmKey: 'dev.terraform.tfstate'
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+        environmentServiceNameAzureRM: 'todoappconnection'    
+
+
+
+
+
+
+
+

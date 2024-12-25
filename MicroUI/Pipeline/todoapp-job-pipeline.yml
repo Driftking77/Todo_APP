@@ -1,0 +1,54 @@
+trigger: none
+pool: Default
+jobs:
+- job: terraforminitplan
+  displayName: Teraform Init And Plan
+  steps:
+  - task: CmdLine@2
+    inputs:
+      script: 'echo $(SystemDefaultDirectory)'
+  - task: TerraformTaskV4@4
+    inputs:
+      provider: 'azurerm'
+      command: 'init'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+      backendServiceArm: 'todoappconnection'
+      backendAzureRmResourceGroupName: 'AKS-RG1'
+      backendAzureRmStorageAccountName: 'todoappstorageaccount12'
+      backendAzureRmContainerName: 'todoapp'
+      backendAzureRmKey: 'dev.terraform.tfstate'
+  - task: TerraformTaskV4@4
+    inputs:
+      provider: 'azurerm'
+      command: 'plan'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+      environmentServiceNameAzureRM: 'todoappconnection'
+- job: manualvalidation
+  displayName: Manual Validation
+  pool: server
+  dependsOn: terraforminitplan
+  steps:
+  - task: ManualValidation@1
+    inputs:
+      notifyUsers: 'abc@gamil.com'
+- job: terraformapply
+  displayName: Terraform Apply
+  dependsOn: manualvalidation
+  steps:
+  - task: TerraformTaskV4@4
+    inputs:
+      provider: 'azurerm'
+      command: 'init'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+      backendServiceArm: 'todoappconnection'
+      backendAzureRmResourceGroupName: 'AKS-RG1'
+      backendAzureRmStorageAccountName: 'todoappstorageaccount12'
+      backendAzureRmContainerName: 'todoapp'
+      backendAzureRmKey: 'dev.terraform.tfstate'
+  - task: TerraformTaskV4@4
+    inputs:
+      provider: 'azurerm'
+      command: 'apply'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/environment/dev'
+      environmentServiceNameAzureRM: 'todoappconnection'
+

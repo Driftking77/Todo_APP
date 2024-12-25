@@ -1,0 +1,35 @@
+trigger: none
+pool:
+  name: Agent-vm
+
+# stages:
+# - stage: BuildStage
+#   displayName: Build Stage for docker image and acr pull too
+#   jobs:
+#   - job: BuildJob
+#     displayName: Build job for docker image and acr pull too
+#     steps:
+#     - task: Docker@2
+#       inputs:
+#         containerRegistry: 'todoDcokerSC'
+#         repository: 'MicroTodoUI'
+#         command: 'buildAndPush'
+#         Dockerfile: '**/Dockerfile'
+#         tags: |
+#           $(Build.BuildId)
+#           latest
+stages:
+- stage: DeployStage
+  displayName: Deploy Stage
+  # dependsOn: BuildStage
+  jobs:
+  - job: TodoDeployment
+    displayName: Todo Deployment using AKS
+    steps:
+    - task: KubernetesManifest@1
+      inputs:
+        action: 'deploy'
+        connectionType: 'kubernetesServiceConnection'
+        kubernetesServiceConnection: 'todoK8sSC'
+        namespace: 'default'
+        manifests: 'manifest/*.yml'
